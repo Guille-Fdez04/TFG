@@ -1,2 +1,2 @@
-# GITT-P1-Qt-2025
-Código base de la aplicación Qt para la Práctica 1
+# Interfaz gráfica TFG
+Proyecto Qt para la interfaz
