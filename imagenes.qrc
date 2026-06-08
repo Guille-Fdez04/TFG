@@ -1,0 +1,20 @@
+<RCC>
+    <qresource prefix="/">
+        <file>images/Broken-Glass-PNG-Image-Transparent.png</file>
+        <file>images/broken-glass.png</file>
+        <file>images/EngineButton.png</file>
+        <file>images/EngineButtonStart.png</file>
+        <file>images/EngineButtonStop.png</file>
+        <file>images/Map.png</file>
+        <file>images/planeTop2.png</file>
+        <file>images/Acelerometro.png</file>
+        <file>images/background_inc.png</file>
+        <file>images/frontal_inc.png</file>
+        <file>images/lateral_inc.png</file>
+        <file>images/accel.png</file>
+        <file>images/humidity.png</file>
+        <file>images/pressure.png</file>
+        <file>images/thermo.png</file>
+        <file>images/159061.png</file>
+    </qresource>
+</RCC>
