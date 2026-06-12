@@ -111,23 +111,27 @@ tI2CMInstance g_sI2CInst;
 //VARIABLES GLOBALES PARA EL SENSOR BMP180
 tBMP180 g_sBMP180Inst;
 volatile uint_fast8_t g_vui8DataFlag_bmp180;
+volatile uint_fast8_t g_vui8ErrorFlag_bmp180;
 
 //VARIABLES GLOBALES PARA EL SENSOR SHT21
 tSHT21 g_sSHT21Inst;
 volatile uint_fast8_t g_vui8DataFlag_sht21;
+volatile uint_fast8_t g_vui8ErrorFlag_sht21;
 
 //VARIALBES GLOBALES PARA EL SENSOR MPU9150
 tMPU9150 g_sMPU9150Inst;
 tCompDCM g_sCompDCMInst;
 volatile uint_fast8_t g_vui8I2CDoneFlag_mpu9150;
+volatile uint_fast8_t g_vui8ErrorFlag_mpu9150;
 
 //VARIABLES GLOBALES PARA EL SENSOR TMP006
 tTMP006 g_sTMP006Inst;
 volatile uint_fast8_t g_vui8DataFlag_tmp006;
+volatile uint_fast8_t g_vui8ErrorFlag_tmp006;
 
 
-//Flag global para gestionar errores en la transaccion de  I2C
-volatile uint_fast8_t g_vui8ErrorFlag;
+
+
 
 //*****************************************************************************
 //
@@ -137,8 +141,18 @@ volatile uint_fast8_t g_vui8ErrorFlag;
 #ifdef DEBUG
 void __error__(char *pcFilename, uint32_t ulLine)
 {
-    while(1) //Si la ejecucion esta aqui dentro, es que el RTOS o alguna de las bibliotecas de perifericos han comprobado que hay un error
-    { //Mira el arbol de llamadas en el depurador y los valores de nombrefich y linea para encontrar posibles pistas.
+    if(!g_vui8ErrorFlag_bmp180){
+        while(1) //Si la ejecucion esta aqui dentro, es que el RTOS o alguna de las bibliotecas de perifericos han comprobado que hay un error
+            { //Mira el arbol de llamadas en el depurador y los valores de nombrefich y linea para encontrar posibles pistas.
+
+            }
+    }
+    else{
+
+        //Ha fallado el sensor de presion
+        //Intento recuperarme del error reiniciandolo
+
+
     }
 }
 #endif
@@ -193,7 +207,7 @@ void BMP180AppCallback(void* pvCallbackData, uint_fast8_t ui8Status)
         g_vui8DataFlag_bmp180 = 1;
 
     }
-    g_vui8ErrorFlag = ui8Status;
+    g_vui8ErrorFlag_bmp180 = ui8Status;
 }
 
 void SHT21AppCallback(void* pvCallbackData, uint_fast8_t ui8Status)
@@ -203,7 +217,7 @@ void SHT21AppCallback(void* pvCallbackData, uint_fast8_t ui8Status)
         g_vui8DataFlag_sht21 = 1;
 
     }
-    g_vui8ErrorFlag = ui8Status;
+    g_vui8ErrorFlag_sht21 = ui8Status;
 }
 
 void
@@ -217,7 +231,7 @@ MPU9150AppCallback(void *pvCallbackData, uint_fast8_t ui8Status)
     }
 
 
-    g_vui8ErrorFlag = ui8Status;
+    g_vui8ErrorFlag_mpu9150 = ui8Status;
 }
 
 void
@@ -230,7 +244,7 @@ TMP006AppCallback(void *pvCallbackData, uint_fast8_t ui8Status)
     }
 
 
-    g_vui8ErrorFlag = ui8Status;
+    g_vui8ErrorFlag_tmp006 = ui8Status;
 }
 
 //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -265,20 +279,21 @@ void AppErrorHandler(char *pcFilename, uint_fast32_t ui32Line){
 //================= FUNCIONES DE ESPERA =======================================
 void BMP180AppI2CWait(char *pcFilename, uint_fast32_t ui32Line){
 
+    uint8_t suspenderTarea=0;
     //Detengo las tareas, para que no interrumpan la transacción I2C
     vTaskSuspendAll();
 
-    while((g_vui8DataFlag_bmp180 == 0) && (g_vui8ErrorFlag == 0)){
+    while((g_vui8DataFlag_bmp180 == 0) && (g_vui8ErrorFlag_bmp180 == 0)){
 
         //MAP_SysCtlSleep();
 
     }
 
-    if(g_vui8ErrorFlag) // Ha ocurrido un error
+    if(g_vui8ErrorFlag_bmp180) // Ha ocurrido un error
     {
         //Ha ocurrido un error, se intenta resolver reiniciando el periferico
         g_vui8DataFlag_bmp180 = 0;
-        g_vui8ErrorFlag = 0;
+        g_vui8ErrorFlag_bmp180 = 0;
         uint8_t contador=0;
 
         // Initialize the BMP180.
@@ -296,9 +311,9 @@ void BMP180AppI2CWait(char *pcFilename, uint_fast32_t ui32Line){
         g_vui8DataFlag_bmp180 = 0;
 
 
-        if(g_vui8ErrorFlag || contador == 20){
+        if(g_vui8ErrorFlag_bmp180 || contador == 20){
             //Si el error persiste, se suspende la tarea
-            vTaskSuspend(tarea_pres);
+            suspenderTarea=1;
 
         }
 
@@ -309,6 +324,11 @@ void BMP180AppI2CWait(char *pcFilename, uint_fast32_t ui32Line){
     //Si no hay errores, se resumen las tareas de FreeRTOS
     if(!xTaskResumeAll()){
         taskYIELD();
+    }
+
+    if(suspenderTarea){
+        vTaskSuspend(tarea_pres);
+        g_vui8ErrorFlag_bmp180 = 0;
     }
 
     g_vui8DataFlag_bmp180 = 0;
@@ -324,13 +344,13 @@ SHT21AppI2CWait(char *pcFilename, uint_fast32_t ui32Line)
         vTaskSuspendAll();
     }
 
-    while((g_vui8DataFlag_sht21 == 0) && (g_vui8ErrorFlag == 0))
+    while((g_vui8DataFlag_sht21 == 0) && (g_vui8ErrorFlag_sht21 == 0))
     {
         MAP_SysCtlSleep();
     }
 
 
-    if(g_vui8ErrorFlag)
+    if(g_vui8ErrorFlag_sht21)
     {
         AppErrorHandler(pcFilename, ui32Line);
     }
@@ -354,13 +374,13 @@ MPU9150AppI2CWait(char *pcFilename, uint_fast32_t ui32Line)
         vTaskSuspendAll();
     }
 
-    while((g_vui8I2CDoneFlag_mpu9150 == 0) && (g_vui8ErrorFlag == 0))
+    while((g_vui8I2CDoneFlag_mpu9150 == 0) && (g_vui8ErrorFlag_mpu9150 == 0))
     {
         MAP_SysCtlSleep();
     }
 
 
-    if(g_vui8ErrorFlag)
+    if(g_vui8ErrorFlag_mpu9150)
     {
         AppErrorHandler(pcFilename, ui32Line);
     }
@@ -382,13 +402,13 @@ TMP006AppI2CWait(char *pcFilename, uint_fast32_t ui32Line){
         vTaskSuspendAll();
     }
 
-    while((g_vui8DataFlag_tmp006 == 0) && (g_vui8ErrorFlag == 0))
+    while((g_vui8DataFlag_tmp006 == 0) && (g_vui8ErrorFlag_tmp006 == 0))
     {
         MAP_SysCtlSleep();
     }
 
 
-    if(g_vui8ErrorFlag)
+    if(g_vui8ErrorFlag_tmp006)
     {
         AppErrorHandler(pcFilename, ui32Line);
     }
@@ -530,7 +550,7 @@ void InicializarMPU9150(void){
 void InicializarBMP180(void){
 
     g_vui8DataFlag_bmp180 = 0;
-        g_vui8ErrorFlag = 0;
+        g_vui8ErrorFlag_bmp180 = 0;
 
     // Initialize the BMP180.
 
