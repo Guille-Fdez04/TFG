@@ -280,12 +280,15 @@ void AppErrorHandler(char *pcFilename, uint_fast32_t ui32Line){
 void BMP180AppI2CWait(char *pcFilename, uint_fast32_t ui32Line){
 
     uint8_t suspenderTarea=0;
+    TickType_t ticksInicial = xTaskGetTickCount();
+    TickType_t ticksActual=ticksInicial;
     //Detengo las tareas, para que no interrumpan la transacción I2C
     vTaskSuspendAll();
 
-    while((g_vui8DataFlag_bmp180 == 0) && (g_vui8ErrorFlag_bmp180 == 0)){
+    while((g_vui8DataFlag_bmp180 == 0) && (g_vui8ErrorFlag_bmp180 == 0) && ((ticksActual-ticksInicial)<(configTICK_RATE_HZ*3))){
 
         //MAP_SysCtlSleep();
+        ticksActual = xTaskGetTickCount();
 
     }
 
@@ -332,6 +335,9 @@ void BMP180AppI2CWait(char *pcFilename, uint_fast32_t ui32Line){
     }
 
     g_vui8DataFlag_bmp180 = 0;
+    I2CMInit(&g_sI2CInst, I2C3_BASE, INT_I2C3, 0xff, 0xff, MAP_SysCtlClockGet());
+    xSemaphoreGive(mutex_i2c);
+
 
 }
 
@@ -339,13 +345,16 @@ void
 SHT21AppI2CWait(char *pcFilename, uint_fast32_t ui32Line)
 {
 
+    TickType_t ticksInicial = xTaskGetTickCount();
+    TickType_t ticksActual=ticksInicial;
     //Si se han creado las tareas de FreeRTOS, las suspendemos para que al I2C le de tiempo a completar la transaccion
     if(freeRTOSIniciado == 1){
         vTaskSuspendAll();
     }
 
-    while((g_vui8DataFlag_sht21 == 0) && (g_vui8ErrorFlag_sht21 == 0))
+    while(((g_vui8DataFlag_sht21 == 0) && (g_vui8ErrorFlag_sht21 == 0)) && ((ticksActual-ticksInicial)<(configTICK_RATE_HZ*3)))
     {
+        ticksActual = xTaskGetTickCount();
         MAP_SysCtlSleep();
     }
 
@@ -369,13 +378,16 @@ void
 MPU9150AppI2CWait(char *pcFilename, uint_fast32_t ui32Line)
 {
 
+    TickType_t ticksInicial = xTaskGetTickCount();
+    TickType_t ticksActual=ticksInicial;
     //Si se han creado las tareas de FreeRTOS, las suspendemos para que al I2C le de tiempo a completar la transaccion
     if(freeRTOSIniciado == 1){
         vTaskSuspendAll();
     }
 
-    while((g_vui8I2CDoneFlag_mpu9150 == 0) && (g_vui8ErrorFlag_mpu9150 == 0))
+    while((g_vui8I2CDoneFlag_mpu9150 == 0) && (g_vui8ErrorFlag_mpu9150 == 0) && ((ticksActual-ticksInicial)<(configTICK_RATE_HZ*3)))
     {
+        ticksActual = xTaskGetTickCount();
         MAP_SysCtlSleep();
     }
 
@@ -397,13 +409,16 @@ MPU9150AppI2CWait(char *pcFilename, uint_fast32_t ui32Line)
 
 TMP006AppI2CWait(char *pcFilename, uint_fast32_t ui32Line){
 
+    TickType_t ticksInicial = xTaskGetTickCount();
+    TickType_t ticksActual=ticksInicial;
     //Si se han creado las tareas de FreeRTOS, las suspendemos para que al I2C le de tiempo a completar la transaccion
     if(freeRTOSIniciado == 1){
         vTaskSuspendAll();
     }
 
-    while((g_vui8DataFlag_tmp006 == 0) && (g_vui8ErrorFlag_tmp006 == 0))
+    while((g_vui8DataFlag_tmp006 == 0) && (g_vui8ErrorFlag_tmp006 == 0) && ((ticksActual-ticksInicial)<(configTICK_RATE_HZ*3)))
     {
+        ticksActual = xTaskGetTickCount();
         MAP_SysCtlSleep();
     }
 
@@ -971,7 +986,7 @@ static portTASK_FUNCTION(HUMEDADTASK, pvParameters){
         xSemaphoreGive(mutex_i2c);
 
 
-        vTaskDelay(30/portTICK_PERIOD_MS); //En el datasheet se indica que hay que esperar, como minimo 29 ms
+        vTaskDelay(40/portTICK_PERIOD_MS); //En el datasheet se indica que hay que esperar, como minimo 29 ms
 
 
         xSemaphoreTake(mutex_i2c,portMAX_DELAY);
@@ -1347,7 +1362,7 @@ int main(void)
         while(1);
     }
 
-    if((xTaskCreate(PRESIONTASK, "presion", SENSORESTASKSIZE*2,NULL,tskIDLE_PRIORITY + SENSORESTASKPRIO + 1, &tarea_pres) != pdPASS))
+    if((xTaskCreate(PRESIONTASK, "presion", SENSORESTASKSIZE*2,NULL,tskIDLE_PRIORITY + SENSORESTASKPRIO, &tarea_pres) != pdPASS))
     {
         while(1);
     }
